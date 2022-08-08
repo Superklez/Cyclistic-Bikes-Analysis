@@ -4,4 +4,4 @@ This case study is done as part of the [Google Data Analytics Professional Certi
 
 **Business task: Understand how casual riders and annual members use Cyclistic bikes differently in order to convert casual riders into annual members and maximize the number of annual memberships.**
 
-![cyclistic-preview](./cyclistic.html)
+![cyclistic-preview](./cyclistic.png)
