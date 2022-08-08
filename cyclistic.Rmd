@@ -1,0 +1,211 @@
+---
+title: "Cyclistic Bike-Share Analysis"
+author: "BJ Herrera"
+date: "2022-08-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Background of the problem
+This case study is done as part of the [Google Data Analytics Professional Certificate](https://www.coursera.org/professional-certificates/google-data-analytics) in [Coursera](https://www.coursera.org). In this case study (or capstone project), the task is to help a fictional company, Cyclistic, make a key business decision. Specifically, the company launched a bike-sharing offering in 2016, where they offer a variety of options to riders, including single-day passes, full-day passes and annual memberships to all their bikes. Since launch, the company noticed that annual memberships account for the most profits. Thus, the company wants to maximize annual memberships. To do this, the company will come up with design marketing strategies aimed at converting causal riders (those who opt for single-day passes or full-day passes) into annual members. The purpose of this analysis is to help understand how casual riders and annual members use Cyclistic bikes differently.
+
+**Business task: Understand how casual riders and annual members use Cyclistic bikes differently in order to convert casual riders into annual members and maximize the number of annual memberships.**
+
+# The Data
+Although the company in this case study is fictional, the data comes from [Lyft Bikes and Scooters, LLC](https://www.lyft.com), a real company that offers bike-sharing options to its users. The data can be downloaded [here](https://divvy-tripdata.s3.amazonaws.com/index.html). For this case study, we will limit ourselves to data from the last 12 months. As of August 7, 2022, the latest data is for July 2022. Thus, the data included in this analysis will be from August 2021 to July 2022. The code chunk below loads the R libraries and data to be used in this analysis.
+
+```{r initial load, echo=TRUE, error=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(lubridate)
+library(skimr)
+options(dplyr.summarise.inform = FALSE)
+
+filenames <- list.files(path="./data", pattern=".csv", all.files=TRUE, full.names=TRUE)
+
+bike_data <- read_csv(filenames[1])
+for (filename in filenames[2:12]) {
+  bike_data <- rbind(bike_data, read_csv(filename))
+}
+
+min_date <- date(min(bike_data$started_at))
+max_date <- date(max(bike_data$ended_at))
+```
+
+# Data Cleaning
+
+We begin the analysis by cleaning the dataset for any invalid data. To get a better understanding of the data, we first skim through the entire data using the `skim_without_charts` function.
+
+```{r skim data}
+skim_without_charts(bike_data)
+```
+
+We see that there are many missing data, mostly pertaining to the information to the start and end stations. To address this issue, I would normally ask a supervisor about whether we have the information to fill in the missing data. However, as this is just a case study, I will base my insights only on the available data. Luckily for us, the data used in this analysis is mostly valid. However, there are some invalid records, such as when the data in `ended_at` is earlier than `started_at`. So, we will remove these invalid data.
+
+```{r invalid datetimes}
+bike_data <- filter(bike_data, ended_at > started_at)
+```
+
+We will also drop the columns we will not be using in this analysis. **Note: This step is only done to speed up computation time by dropping the columns I have not used in this analysis.** 
+
+```{r drop columns}
+bike_data <- select(bike_data, member_casual, rideable_type, started_at,
+                    ended_at)
+```
+
+# Exploratory Data Analysis
+
+Before we begin, we will look at the distribution of members and casual riders to determine which group is larger and by how much.
+
+```{r rider types}
+member_counts <- bike_data %>%
+  group_by(member_casual) %>%
+  summarize(count = n())
+
+total_members <- sum(member_counts$count) # or nrow(bike_data)
+
+ggplot(member_counts, aes("", count, fill = member_casual)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_text(aes(label = paste0(member_casual, "\n",
+                               round(count / total_members * 100, 1), "%")),
+            position = position_stack(vjust=0.5)) +
+  coord_polar(theta = "y") +
+  labs(title = "Distribution of Each Type of Rider", 
+       subtitle = "Percentage of bike rides for each type of rider",
+       fill = "Type of rider",
+       caption = paste0("Data collected from ", min_date, " to ", max_date)) +
+  theme_classic() +
+  theme(axis.line = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        legend.position = "none")
+```
+
+We clearly see that annual members account for 57.3% of the total number of bikes rides, 14.6% more than what casual riders contribute.
+
+## Cateogies of bikes
+
+We will now look into the different types of bikes available and the preferences of the two groups of riders. We begin by preparing the necessary data.
+
+```{r bike types}
+bike_type_data <- bike_data %>%
+  group_by(member_casual, rideable_type) %>%
+  summarize(num_rides = n()) %>%
+  mutate(rideable_type = str_to_title(gsub("_", " ", rideable_type)))
+
+print(bike_type_data)
+
+ggplot(bike_type_data, aes(rideable_type, num_rides, fill = member_casual)) +
+  geom_bar(position = "dodge", color = "black", stat = "identity") +
+  geom_text(aes(label = num_rides), vjust = -0.25,
+            position = position_dodge(width = 0.9)) +
+  labs(title = "Categories of Bikes",
+       subtitle = "Number of bike rides for each type of bike and rider",
+       caption = paste0("Data collected from ", min_date, " to ", max_date),
+       y = "Number of rides",
+       fill = "Type of rider") +
+  theme(axis.title.x = element_blank())
+```
+
+**Insight: Only casual members use docked bikes.** Although docked bikes contribute the least to the total number of bike rides, we see that only casual riders have used the docked bike over the past 12 months. 
+
+## Preferred Day of the Week
+
+```{r week data}
+week_data <- bike_data %>%
+  mutate(day = wday(started_at, label = TRUE)) %>%
+  group_by(member_casual, day) %>%
+  summarize(num_rides = n())
+
+print(week_data)
+
+ggplot(week_data, aes(day, num_rides, group = member_casual)) +
+  geom_line(aes(color = member_casual)) +
+  geom_point() +
+  labs(title = "Preferred Day of the Week for Biking",
+       subtitle =  "Comparing the trend of bike rides throughout the week",
+       caption = paste0("Data collected from ", min_date, " to ", max_date),
+       y = "Number of rides",
+       color = "Type of rider") +
+  theme(axis.title.x = element_blank())
+```
+
+**Insight: Casual riders prefer riding on weekends, whereas members prefer weekdays.** We see opposite trends for both casual riders and annual members in terms of the total number of rides throughout the week. Furthermore, we see a spike in the number of rides for casual riders during the weekend, whereas the number of annual members decrease.
+
+## Trip Durations
+
+Now let's look at how the two types of riders differ in terms of trip duration.
+
+```{r trip durations}
+trip_data <- bike_data %>%
+  mutate(trip_duration = as.integer(difftime(bike_data$ended_at,
+                                             bike_data$started_at,
+                                             units = "mins"))) %>%
+  group_by(member_casual) %>%
+  summarize(avg_trip_duration = mean(trip_duration),
+            total_drip_duration = sum(trip_duration),
+            max_trip_duration = max(trip_duration),
+            min_trip_duration = min(trip_duration))
+
+print(trip_data)
+
+ggplot(trip_data, aes(member_casual, avg_trip_duration, fill=member_casual)) +
+  geom_bar(color = "black", stat = "identity") +
+  geom_text(aes(label = round(avg_trip_duration)), vjust = -0.25) +
+  labs(title = "Trip Durations",
+       subtitle = "Average trip duration in minutes for each type of rider",
+       caption = paste0("Data collected from ", min_date, " to ", max_date),
+       y = "Average trip duration (mins)") +
+  theme(axis.title.x = element_blank(),
+        legend.position = "none")
+```
+
+**Insight: Casual riders tend to use the bikes for longer durations than members do.** Based on our analysis, the average trip duration for casual riders is over two times more than the average trip duration for members.
+
+# Conclusion and Recommendations
+
+The analysis included in this report shows how casual riders differ from annual members. Specifically, the three main insights drawn from this analysis are:
+
+* Only casual members use docked bikes
+* Casual riders prefer riding on weekends, whereas members prefer weekdays
+* Casual riders tend to use the bikes for longer durations than members do
+
+These key insights can help the Cyclistic marketing team come up with a targeted marketing strategy that can effectively reach out to casual riders and hopefully convince them to sign up for an annual membership.
+
+Because of hardware limitations and resources needed to perform some of the more complex analysis, I have outlined some recommendations for future analysis:
+
+* Compare the preferred start and end locations for both casual riders and annual members, and generate a geographical plot showing where these places are in the map
+* Compare the average distance traveled for both casual riders and annual members (you can use the Haversine formula for simplicity or a more accurate algorithm that considers the shortest path between two points in a map)
+
+<!-- ```{r} -->
+<!-- monthly_data <- bike_data %>% -->
+<!--   group_by(member_casual, month = month(started_at)) %>% -->
+<!--   summarize(num_rides = sum(length(ride_id))) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- ggplot(monthly_data, aes(month, num_rides, group = member_casual)) + -->
+<!--   geom_line(aes(color = member_casual)) + -->
+<!--   geom_point(alpha = 0.25) -->
+<!-- ``` -->
+
+<!-- ## Preferred Stations -->
+
+<!-- ```{r station data} -->
+<!-- station_data <- bike_data %>% -->
+<!--   drop_na(start_station_name) %>% -->
+<!--   group_by(member_casual, station_name = start_station_name) %>% -->
+<!--   summarize(count = length(ride_id)) -->
+<!-- ``` -->
+
+<!-- ```{r station graph} -->
+<!-- ``` -->
+
+<!-- # Conclusions and Recommendations -->
+
+<!-- Here are some recommendations from the analysis: -->
+<!-- *  -->
