@@ -180,32 +180,3 @@ Because of hardware limitations and resources needed to perform some of the more
 
 * Compare the preferred start and end locations for both casual riders and annual members, and generate a geographical plot showing where these places are in the map
 * Compare the average distance traveled for both casual riders and annual members (you can use the Haversine formula for simplicity or a more accurate algorithm that considers the shortest path between two points in a map)
-
-<!-- ```{r} -->
-<!-- monthly_data <- bike_data %>% -->
-<!--   group_by(member_casual, month = month(started_at)) %>% -->
-<!--   summarize(num_rides = sum(length(ride_id))) -->
-<!-- ``` -->
-
-<!-- ```{r} -->
-<!-- ggplot(monthly_data, aes(month, num_rides, group = member_casual)) + -->
-<!--   geom_line(aes(color = member_casual)) + -->
-<!--   geom_point(alpha = 0.25) -->
-<!-- ``` -->
-
-<!-- ## Preferred Stations -->
-
-<!-- ```{r station data} -->
-<!-- station_data <- bike_data %>% -->
-<!--   drop_na(start_station_name) %>% -->
-<!--   group_by(member_casual, station_name = start_station_name) %>% -->
-<!--   summarize(count = length(ride_id)) -->
-<!-- ``` -->
-
-<!-- ```{r station graph} -->
-<!-- ``` -->
-
-<!-- # Conclusions and Recommendations -->
-
-<!-- Here are some recommendations from the analysis: -->
-<!-- *  -->
